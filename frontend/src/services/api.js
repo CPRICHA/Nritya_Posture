@@ -1,7 +1,17 @@
 import axios from 'axios'
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
+/** Deployed Render backend — used when VITE_API_URL is unset in production builds */
+export const PRODUCTION_API_URL = 'https://nritya-backend-vcgv.onrender.com'
+
+const DEFAULT_DEV_URL = 'http://127.0.0.1:8000'
+
+function resolveApiBaseUrl() {
+  const fromEnv = import.meta.env.VITE_API_URL?.trim()
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  return import.meta.env.PROD ? PRODUCTION_API_URL : DEFAULT_DEV_URL
+}
+
+export const API_BASE_URL = resolveApiBaseUrl()
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

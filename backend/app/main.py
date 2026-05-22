@@ -17,11 +17,19 @@ from app.services.posture_analysis import (
 app = FastAPI()
 
 # ---------------- CORS ----------------
+# Comma-separated origins in ALLOWED_ORIGINS, or * for all (local + Vercel + custom domain).
+# allow_credentials must be False when using wildcard origins.
+
+_cors_origins = os.getenv("ALLOWED_ORIGINS", "*").strip()
+_allow_origins = ["*"] if _cors_origins == "*" else [
+    o.strip() for o in _cors_origins.split(",") if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"https://.*\.vercel\.app"),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
