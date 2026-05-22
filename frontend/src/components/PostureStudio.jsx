@@ -135,7 +135,11 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
       try {
         const data = await analyze(uploadFile)
         setUploadResult(data)
-        if (data?.pose && shouldRecordPose(lastHistoryPose.current, data.pose, data.confidence)) {
+        if (
+          data?.pose &&
+          (data.locked || data.matched) &&
+          shouldRecordPose(lastHistoryPose.current, data.pose, data.confidence)
+        ) {
           lastHistoryPose.current = data.pose
           const thumb = URL.createObjectURL(uploadFile)
           thumbUrls.current.add(thumb)
@@ -164,7 +168,7 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
   if (!expanded) return null
 
   const isLive = mode === 'live'
-  const analyzing = isLive && (status === 'analyzing' || status === 'capturing')
+  const analyzing = isLive && status === 'analyzing'
   const isLocked = isLive && poseLocked
   const result = isLive
     ? display
@@ -175,6 +179,7 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
           posture_score: uploadResult.posture_score,
           feedback: uploadResult.feedback ?? [],
           matched: uploadResult.matched,
+          locked: Boolean(uploadResult.locked),
           model_loaded: uploadResult.model_loaded !== false,
           predicted_pose: uploadResult.predicted_pose ?? null,
         }
@@ -283,7 +288,8 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
                 postureScore={result?.posture_score ?? null}
                 feedback={result?.feedback ?? []}
                 loading={isLive ? analyzing : uploadLoading}
-                poseLocked={isLocked}
+                poseLocked={isLive ? isLocked : Boolean(uploadResult?.locked)}
+                locked={Boolean(result?.locked)}
                 modelLoaded={result?.model_loaded !== false}
                 predictedPose={result?.predicted_pose ?? null}
               />

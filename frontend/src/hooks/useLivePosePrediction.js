@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ANALYZE_INTERVAL_MS,
   CONFIDENCE_SWITCH_THRESHOLD,
   EMA_ALPHA,
-  LOCK_PAUSE_MS,
+  FRAME_SIMILARITY_RATIO,
+  MIN_ANALYZE_GAP_LOCKED_MS,
+  MIN_ANALYZE_GAP_SCAN_MS,
   MIN_BUFFER_SAMPLES,
   MONITOR_SWITCH_SAMPLES,
   PREDICTION_BUFFER_SIZE,
 } from '../utils/constants'
+import { fingerprintBlob, isFrameSimilar } from '../utils/frameFingerprint'
 import {
   canLockFromBuffer,
   getMajorityVote,
@@ -22,15 +24,14 @@ const initialDisplay = {
   posture_score: null,
   feedback: [],
   matched: false,
+  locked: false,
   poseLocked: false,
   rawPose: '—',
 }
 
 /**
- * Live engine with confidence lock, pause-after-lock, and debounced mudra switching.
- * @param {boolean} enabled
- * @param {() => Promise<Blob | null>} getFrameBlob
- * @param {(payload: object) => void} [onPoseLocked] — fired once per newly locked mudra (history)
+ * Continuous camera + throttled intelligent analysis (rAF loop).
+ * Freezes readout only when locked; camera stays live.
  */
 export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
   const [display, setDisplay] = useState(initialDisplay)
@@ -41,14 +42,14 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
   const bufferRef = useRef([])
   const frozenRef = useRef(null)
   const lockedMudraRef = useRef(null)
-  const pauseUntilRef = useRef(0)
   const switchStreakRef = useRef({ pose: null, count: 0 })
   const smoothConf = useRef(null)
   const smoothScore = useRef(null)
   const gen = useRef(0)
   const busy = useRef(false)
-  const intervalRef = useRef(null)
-  const resumeTimerRef = useRef(null)
+  const lastAnalyzeAt = useRef(0)
+  const lastFingerprint = useRef(null)
+  const lastBackendSignature = useRef(null)
 
   const onLockRef = useRef(onPoseLocked)
   const getFrameRef = useRef(getFrameBlob)
@@ -73,12 +74,15 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
       EMA_ALPHA
     )
 
+    const poseLabel = rawPose === 'none' ? '—' : rawPose
+
     return {
-      pose: rawPose === 'none' ? '—' : rawPose,
+      pose: poseLabel,
       confidence: smoothConf.current ?? conf,
       posture_score: Math.round(smoothScore.current ?? score ?? 0),
       feedback: Array.isArray(raw.feedback) ? raw.feedback : [],
       matched: Boolean(raw.matched),
+      locked: Boolean(raw.locked) || locked,
       model_loaded: raw.model_loaded !== false,
       predicted_pose: raw.predicted_pose ?? null,
       poseLocked: locked,
@@ -93,9 +97,14 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
       if (!mudra || mudra === '—' || mudra === 'none') return
 
       phaseRef.current = 'locked'
-      frozenRef.current = { ...snapshot, poseLocked: true }
+      frozenRef.current = {
+        ...snapshot,
+        pose: mudra,
+        locked: true,
+        poseLocked: true,
+        matched: true,
+      }
       lockedMudraRef.current = mudra
-      pauseUntilRef.current = Date.now() + LOCK_PAUSE_MS
       switchStreakRef.current = { pose: null, count: 0 }
       bufferRef.current = []
 
@@ -109,14 +118,9 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
         posture_score: snapshot.posture_score,
         feedback: snapshot.feedback,
         matched: true,
+        locked: true,
         frameBlob: snapshot.frameBlob,
       })
-
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
-      resumeTimerRef.current = setTimeout(() => {
-        phaseRef.current = 'monitoring'
-        setEngineStatus('monitoring')
-      }, LOCK_PAUSE_MS)
     },
     []
   )
@@ -125,7 +129,10 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
     (raw, blob) => {
       const conf = Number(raw.confidence) || 0
       const rawPose = String(raw.pose ?? 'none')
-      const matched = Boolean(raw.matched) && rawPose !== 'none' && conf >= CONFIDENCE_SWITCH_THRESHOLD
+      const matched =
+        (Boolean(raw.matched) || Boolean(raw.locked)) &&
+        rawPose !== 'none' &&
+        conf >= CONFIDENCE_SWITCH_THRESHOLD
 
       if (!matched) return false
 
@@ -146,18 +153,22 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
     [applyLock, buildSnapshot]
   )
 
-  const trySwitchInMonitoring = useCallback(
+  const trySwitchWhileLocked = useCallback(
     (raw, blob) => {
       const conf = Number(raw.confidence) || 0
       const rawPose = String(raw.pose ?? 'none')
       const current = lockedMudraRef.current
 
-      if (!raw.matched || rawPose === 'none' || conf < CONFIDENCE_SWITCH_THRESHOLD) {
+      if (
+        !raw.matched &&
+        !raw.locked &&
+        conf < CONFIDENCE_SWITCH_THRESHOLD
+      ) {
         switchStreakRef.current = { pose: null, count: 0 }
         return false
       }
 
-      if (rawPose === current) {
+      if (!rawPose || rawPose === 'none' || rawPose === current) {
         switchStreakRef.current = { pose: null, count: 0 }
         return false
       }
@@ -196,15 +207,13 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
     bufferRef.current = []
     frozenRef.current = null
     lockedMudraRef.current = null
-    pauseUntilRef.current = 0
     switchStreakRef.current = { pose: null, count: 0 }
     smoothConf.current = null
     smoothScore.current = null
     busy.current = false
-    if (resumeTimerRef.current) {
-      clearTimeout(resumeTimerRef.current)
-      resumeTimerRef.current = null
-    }
+    lastAnalyzeAt.current = 0
+    lastFingerprint.current = null
+    lastBackendSignature.current = null
     setPoseLocked(false)
     setDisplay(initialDisplay)
     setEngineStatus('idle')
@@ -221,89 +230,117 @@ export function useLivePosePrediction(enabled, getFrameBlob, onPoseLocked) {
     bufferRef.current = []
     frozenRef.current = null
     lockedMudraRef.current = null
+    lastAnalyzeAt.current = 0
+    lastFingerprint.current = null
+    lastBackendSignature.current = null
     setPoseLocked(false)
+    setEngineStatus('watching')
 
-    const tick = () => {
+    let rafId = 0
+
+    const runAnalysis = async () => {
       if (myGen !== gen.current || busy.current) return
-      if (phaseRef.current === 'locked') return
-      if (Date.now() < pauseUntilRef.current) return
+
+      const now = performance.now()
+      const gap =
+        phaseRef.current === 'locked'
+          ? MIN_ANALYZE_GAP_LOCKED_MS
+          : MIN_ANALYZE_GAP_SCAN_MS
+      if (now - lastAnalyzeAt.current < gap) return
 
       busy.current = true
+      const isLocked = phaseRef.current === 'locked'
 
-      ;(async () => {
-        setEngineStatus(phaseRef.current === 'monitoring' ? 'monitoring' : 'capturing')
-        try {
-          const blob = await getFrameRef.current()
-          if (myGen !== gen.current) return
-          if (!blob) {
-            setEngineStatus('no_frame')
-            return
+      try {
+        if (!isLocked) setEngineStatus('analyzing')
+
+        const blob = await getFrameRef.current()
+        if (myGen !== gen.current || !blob) {
+          if (!isLocked) setEngineStatus('watching')
+          return
+        }
+
+        const fp = await fingerprintBlob(blob)
+        if (isFrameSimilar(lastFingerprint.current, fp, FRAME_SIMILARITY_RATIO)) {
+          if (isLocked && frozenRef.current) {
+            setDisplay(frozenRef.current)
+            setEngineStatus('locked')
+          } else if (!isLocked) {
+            setEngineStatus('watching')
           }
+          return
+        }
+        lastFingerprint.current = fp
+        lastAnalyzeAt.current = now
 
-          setEngineStatus('analyzing')
-          const raw = await analyzePostureImage(blob)
-          if (myGen !== gen.current) return
+        const raw = await analyzePostureImage(blob)
+        if (myGen !== gen.current) return
 
-          if (raw?.error) {
+        if (
+          isLocked &&
+          raw?.frame_signature &&
+          raw.frame_signature === lastBackendSignature.current
+        ) {
+          setDisplay(frozenRef.current)
+          setEngineStatus('locked')
+          return
+        }
+        if (raw?.frame_signature) lastBackendSignature.current = raw.frame_signature
+
+        if (raw?.error) {
+          if (!frozenRef.current) {
             setEngineStatus('api_error')
-            if (!frozenRef.current) {
-              setDisplay((d) => ({
-                ...d,
-                feedback: [String(raw.error)],
-                matched: false,
-                poseLocked: false,
-              }))
-            }
-            return
+            setDisplay((d) => ({
+              ...d,
+              feedback: [String(raw.error)],
+              matched: false,
+              locked: false,
+              poseLocked: false,
+            }))
+          } else {
+            setEngineStatus('locked')
           }
+          return
+        }
 
-          if (phaseRef.current === 'scanning') {
-            if (tryLock(raw, blob)) return
-            const preview = buildSnapshot(raw, blob, false)
-            preview.pose = preview.rawPose === 'none' ? '—' : preview.pose
-            setDisplay(preview)
-            setEngineStatus('live')
-            return
-          }
-
-          if (phaseRef.current === 'monitoring') {
-            if (trySwitchInMonitoring(raw, blob)) return
-            if (frozenRef.current) {
-              setDisplay(frozenRef.current)
-              setPoseLocked(true)
-            }
-            setEngineStatus('monitoring')
-            return
-          }
-
+        if (phaseRef.current === 'scanning') {
+          if (tryLock(raw, blob)) return
           const preview = buildSnapshot(raw, blob, false)
           preview.pose = preview.rawPose === 'none' ? '—' : preview.pose
           setDisplay(preview)
-          setEngineStatus('live')
-        } catch {
-          if (myGen === gen.current) setEngineStatus('network_error')
-        } finally {
-          busy.current = false
+          setEngineStatus('watching')
+          return
         }
-      })()
+
+        if (phaseRef.current === 'locked') {
+          if (trySwitchWhileLocked(raw, blob)) return
+          setDisplay(frozenRef.current)
+          setPoseLocked(true)
+          setEngineStatus('locked')
+        }
+      } catch {
+        if (myGen === gen.current && !frozenRef.current) {
+          setEngineStatus('network_error')
+        }
+      } finally {
+        busy.current = false
+      }
     }
 
-    tick()
-    intervalRef.current = setInterval(tick, ANALYZE_INTERVAL_MS)
+    const loop = () => {
+      if (myGen !== gen.current) return
+      rafId = requestAnimationFrame(loop)
+      void runAnalysis()
+    }
+
+    rafId = requestAnimationFrame(loop)
 
     return () => {
       gen.current += 1
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
+      cancelAnimationFrame(rafId)
       busy.current = false
     }
-  }, [
-    enabled,
-    resetSession,
-    buildSnapshot,
-    tryLock,
-    trySwitchInMonitoring,
-  ])
+  }, [enabled, resetSession, buildSnapshot, tryLock, trySwitchWhileLocked])
 
   return { display, status: engineStatus, poseLocked, resetSession }
 }

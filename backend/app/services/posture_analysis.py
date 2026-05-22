@@ -208,6 +208,27 @@ def get_features(landmarks):
     return features
 
 
+# ---------------- STABILITY HELPERS ----------------
+
+def frame_signature(features: dict) -> str:
+    """Compact signature for near-duplicate frame detection."""
+    keys = (
+        "left_knee",
+        "right_knee",
+        "knee_symmetry",
+        "shoulder_slope",
+        "hip_slope",
+    )
+    parts = [str(round(float(features[k]), 1)) for k in keys]
+    return "|".join(parts)
+
+
+def smooth_confidence(raw: float, matched: bool) -> float:
+    if matched:
+        return round(min(0.99, raw * 0.96 + 0.04), 2)
+    return round(raw * 0.88, 2)
+
+
 # ---------------- ML CLASSIFICATION ----------------
 
 def classify_pose(features):
@@ -219,6 +240,7 @@ def classify_pose(features):
             "predicted_pose": None,
             "confidence": 0,
             "matched": False,
+            "locked": False,
             "model_loaded": False,
         }
 
@@ -231,6 +253,7 @@ def classify_pose(features):
 
     matched = confidence >= 0.60
     pose = prediction if matched else "none"
+    display_conf = smooth_confidence(confidence, matched)
 
     print(
         f"Prediction: {prediction}, Confidence: {confidence:.2f}, "
@@ -240,8 +263,9 @@ def classify_pose(features):
     return {
         "pose": pose,
         "predicted_pose": prediction,
-        "confidence": round(confidence, 2),
+        "confidence": display_conf,
         "matched": matched,
+        "locked": matched and pose != "none",
         "model_loaded": True,
     }
 
@@ -319,15 +343,21 @@ def analyze_posture(landmarks):
         rule_feedback,
     )
 
+    locked = bool(classification.get("locked")) or (
+        classification["matched"] and classification["pose"] != "none"
+    )
+
     result = {
         "pose": classification["pose"],
         "predicted_pose": classification.get("predicted_pose"),
         "confidence": classification["confidence"],
         "matched": classification["matched"],
+        "locked": locked,
         "model_loaded": classification.get("model_loaded", is_model_loaded()),
         "posture_score": round(posture_score, 2),
         "feedback": feedback,
         "feature_summary": feature_summary,
+        "frame_signature": frame_signature(features),
     }
 
     print(f"Analysis result: {result}")

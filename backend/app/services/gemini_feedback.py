@@ -60,18 +60,18 @@ def generate_gemini_feedback(
     if not api_key or pose_label.lower() in ("none", "unknown", ""):
         return _fallback_feedback(rule_feedback)
 
-    prompt = f"""You are a senior Bharatanatyam guru coaching a student via a posture analysis app.
+    prompt = f"""You are a senior Bharatanatyam guru giving brief studio corrections.
 
-Detected mudra/pose: {pose_label}
-Posture alignment score (0-100): {posture_score}
-Body metrics (degrees / normalized): {feature_summary}
-Rule-based observations: {rule_feedback or "none"}
+Pose: {pose_label}
+Alignment score (0-100): {posture_score}
+Body metrics: {feature_summary}
+Observed issues: {rule_feedback or "subtle refinements only"}
 
-Write exactly 2 short coaching sentences (one per line).
-Tone: elegant, precise, encouraging, classical Indian dance terminology where natural (araimandi, hastas, mandi, samapadam, etc.).
-Focus on actionable alignment corrections tied to the metrics.
-No markdown, no bullets, no numbering, no quotes, no greeting, no preamble.
-Each line under 90 characters."""
+Write exactly 2 lines. Each line is one complete correction (under 85 characters).
+Use classical terms when natural: araimandi, ardhamandala, hastas, samapadam, muzhumandi.
+Be specific to the metrics. Sound human, calm, expert.
+Forbidden: markdown, bullets, numbering, "AI", "as a model", generic praise, repetition.
+Output only the two lines, separated by a newline."""
 
     try:
         import google.generativeai as genai

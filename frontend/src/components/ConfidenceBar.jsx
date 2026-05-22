@@ -15,7 +15,7 @@ export function ConfidenceBar({ value, className = '' }) {
           className="confidence-fill-ref h-full rounded-full"
           initial={false}
           animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 100, damping: 18 }}
+          transition={{ type: 'spring', stiffness: 80, damping: 22, mass: 0.6 }}
         />
       </div>
     </div>

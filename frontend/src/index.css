@@ -313,6 +313,48 @@
     0 0 72px rgba(52, 211, 153, 0.08);
 }
 
+.feed-glow-live {
+  border-color: rgba(212, 175, 55, 0.14);
+  box-shadow:
+    inset 0 0 48px rgba(0, 0, 0, 0.28),
+    0 0 36px rgba(212, 175, 55, 0.12),
+    0 0 64px rgba(212, 175, 55, 0.05);
+}
+
+.feed-frame-live {
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.12);
+}
+
+.camera-live-ring {
+  z-index: 2;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 175, 55, 0.22),
+    0 0 24px rgba(212, 175, 55, 0.1);
+  animation: camera-ring-breathe 4s ease-in-out infinite;
+}
+
+.live-dot-pulse {
+  animation: live-dot-blink 1.8s ease-in-out infinite;
+}
+
+@keyframes camera-ring-breathe {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(212, 175, 55, 0.18),
+      0 0 20px rgba(212, 175, 55, 0.08);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(212, 175, 55, 0.32),
+      0 0 32px rgba(212, 175, 55, 0.16);
+  }
+}
+
+@keyframes live-dot-blink {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
 .feed-frame {
   background: rgba(0, 0, 0, 0.35);
 }

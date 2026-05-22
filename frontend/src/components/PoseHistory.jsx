@@ -44,7 +44,7 @@ export function PoseHistory({ items = [], onClear }) {
           Your practice timeline appears here as poses are recognized.
         </p>
       ) : (
-        <ul className="history-timeline -mx-1 flex gap-4 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 [-webkit-overflow-scrolling:touch] sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="history-timeline -mx-1 flex max-h-[28rem] gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 pb-2 pt-1 [-webkit-overflow-scrolling:touch] sm:max-h-none sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => (
             <motion.li
               key={item.id}
