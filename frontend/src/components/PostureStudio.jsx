@@ -8,6 +8,7 @@ import { useLivePosePrediction } from '../hooks/useLivePosePrediction'
 import { usePoseAnalysis } from '../hooks/usePoseAnalysis'
 import { JPEG_QUALITY, MAX_HISTORY } from '../utils/constants'
 import { shouldRecordPose } from '../utils/history'
+import { pingBackend } from '../services/api'
 
 let historyId = 0
 
@@ -119,6 +120,11 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
   useEffect(() => {
     if (expanded && mode === 'live' && cameraOn && !live) setLive(true)
   }, [expanded, mode, cameraOn, live])
+
+  useEffect(() => {
+    if (!expanded) return
+    pingBackend().catch(() => {})
+  }, [expanded])
 
   useEffect(() => {
     if (!uploadFile) return

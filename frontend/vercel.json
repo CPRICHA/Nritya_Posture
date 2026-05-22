@@ -1,8 +1,16 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
   "env": {
-    "VITE_API_URL": "https://nritya-backend-vcgv.onrender.com"
+    "VITE_API_URL": "/api",
+    "VITE_USE_API_PROXY": "true"
   },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://nritya-backend-vcgv.onrender.com/:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
