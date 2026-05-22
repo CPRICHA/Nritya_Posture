@@ -300,7 +300,24 @@ def analyze_posture(landmarks):
         other_score * 0.1
     )
 
-    feedback = generate_feedback(features)
+    rule_feedback = generate_feedback(features)
+
+    from app.services.gemini_feedback import (
+        build_feature_summary,
+        generate_gemini_feedback,
+    )
+
+    feature_summary = build_feature_summary(features)
+    coaching_pose = classification["pose"]
+    if coaching_pose == "none":
+        coaching_pose = classification.get("predicted_pose") or "unknown"
+
+    feedback = generate_gemini_feedback(
+        coaching_pose,
+        round(posture_score, 2),
+        feature_summary,
+        rule_feedback,
+    )
 
     result = {
         "pose": classification["pose"],
@@ -310,6 +327,7 @@ def analyze_posture(landmarks):
         "model_loaded": classification.get("model_loaded", is_model_loaded()),
         "posture_score": round(posture_score, 2),
         "feedback": feedback,
+        "feature_summary": feature_summary,
     }
 
     print(f"Analysis result: {result}")

@@ -51,27 +51,31 @@ export function PoseHistory({ items = [], onClear }) {
               layout
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.25 }}
               className="history-tile min-w-[10.5rem] shrink-0 sm:min-w-0"
             >
-              <div className="relative">
+              <div className="history-thumb-wrap relative overflow-hidden rounded-xl">
                 {item.thumbnail ? (
                   <img
                     src={item.thumbnail}
                     alt=""
-                    className="aspect-[4/3] w-full rounded-xl object-cover"
+                    className="aspect-[4/3] w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
                   />
                 ) : (
-                  <div className="aspect-[4/3] w-full rounded-xl bg-maroon-950/60" />
+                  <div className="aspect-[4/3] w-full bg-maroon-950/60" />
                 )}
                 <span
                   className={`absolute right-2.5 top-2.5 h-2 w-2 rounded-full ${statusDot(item.posture_score)}`}
                 />
               </div>
-              <p className="mt-3 truncate font-display text-lg capitalize text-cream">{item.pose}</p>
-              <p className="mt-1 text-xs text-cream-muted/85">
+              <p className="mt-3 truncate font-display text-lg capitalize leading-tight text-cream">
+                {item.pose}
+              </p>
+              <p className="mt-1.5 text-xs leading-snug text-cream-muted/85">
                 Score {item.posture_score ?? '—'}% · {Math.round((item.confidence ?? 0) * 100)}% conf.
               </p>
-              <p className="mt-1 text-[11px] text-gold-500/65">{formatTime(item.timestamp)}</p>
+              <p className="mt-1 text-[11px] tracking-wide text-gold-500/65">{formatTime(item.timestamp)}</p>
             </motion.li>
           ))}
         </ul>

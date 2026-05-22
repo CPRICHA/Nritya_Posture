@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check } from 'lucide-react'
+import { Check, Lock } from 'lucide-react'
 import { ConfidenceBar } from './ConfidenceBar'
 import { Loader } from './Loader'
 
@@ -96,6 +96,7 @@ export function ResultCard({
   loaderLabel = 'Reading your posture…',
   modelLoaded = true,
   predictedPose = null,
+  poseLocked = false,
 }) {
   const list = Array.isArray(feedback) ? feedback : []
   const isAwaiting = !pose || pose === '—'
@@ -114,12 +115,24 @@ export function ResultCard({
   return (
     <motion.div
       layout
-      className="panel-readout h-full p-5 sm:p-7 md:p-8"
+      className={`panel-readout h-full p-5 sm:p-7 md:p-8 ${poseLocked ? 'panel-readout-locked' : ''}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      <p className="label-caps">AI Posture Readout</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="label-caps">AI Posture Readout</p>
+        {poseLocked ? (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="pose-locked-badge inline-flex items-center gap-1.5"
+          >
+            <Lock className="h-3 w-3" strokeWidth={2.25} />
+            Pose Locked
+          </motion.span>
+        ) : null}
+      </div>
 
       {isAwaiting && !loading ? (
         <AwaitingPose />
@@ -131,7 +144,8 @@ export function ResultCard({
                 key={displayPose}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="font-display text-[clamp(1.75rem,4vw,2.85rem)] font-semibold capitalize leading-[1.15] tracking-wide text-cream"
+                transition={{ duration: 0.35 }}
+                className={`font-display text-[clamp(1.75rem,4vw,2.85rem)] font-semibold capitalize leading-[1.15] tracking-wide text-cream ${poseLocked ? 'readout-pose-locked' : ''}`}
               >
                 {displayPose}
               </motion.h3>
@@ -158,7 +172,7 @@ export function ResultCard({
             </div>
           </div>
 
-          {loading ? <Loader label={loaderLabel} /> : null}
+          {loading && !poseLocked ? <Loader label={loaderLabel} shimmer /> : null}
 
           <div className="soft-separator mt-8" />
 

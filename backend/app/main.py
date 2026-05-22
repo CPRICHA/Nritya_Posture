@@ -44,6 +44,7 @@ def home():
         "message": "NrityaAI running",
         "model_loaded": is_model_loaded(),
         "model_path": MODEL_PATH,
+        "gemini_configured": bool(os.getenv("GEMINI_API_KEY", "").strip()),
     }
 
 # ---------------- CSV GENERATION ----------------

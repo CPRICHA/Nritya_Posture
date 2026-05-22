@@ -1,6 +1,10 @@
-export const ANALYZE_INTERVAL_MS = 2500
+export const ANALYZE_INTERVAL_MS = 1750
+export const LOCK_PAUSE_MS = 3000
 export const CONFIDENCE_SWITCH_THRESHOLD = 0.6
-export const POSE_SWITCH_STREAK = 3
-export const EMA_ALPHA = 0.38
+export const POSE_SWITCH_STREAK = 2
+export const PREDICTION_BUFFER_SIZE = 5
+export const MIN_BUFFER_SAMPLES = 2
+export const MONITOR_SWITCH_SAMPLES = 3
+export const EMA_ALPHA = 0.32
 export const JPEG_QUALITY = 0.72
 export const MAX_HISTORY = 24

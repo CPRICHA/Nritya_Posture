@@ -35,12 +35,12 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
   }
 
   const appendHistory = useCallback((entry) => {
-    if (!shouldRecordPose(lastHistoryPose.current, entry.pose)) return
+    if (!shouldRecordPose(lastHistoryPose.current, entry.pose, entry.confidence)) return
     lastHistoryPose.current = entry.pose
     setHistory((h) => [{ ...entry, id: ++historyId }, ...h].slice(0, MAX_HISTORY))
   }, [])
 
-  const handleSnapshot = useCallback(
+  const handlePoseLocked = useCallback(
     (payload) => {
       let thumbnail = null
       if (payload.frameBlob) {
@@ -75,10 +75,10 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
     })
   }, [])
 
-  const { display, status, resetSession } = useLivePosePrediction(
+  const { display, status, poseLocked, resetSession } = useLivePosePrediction(
     live && cameraOn,
     getFrameBlob,
-    handleSnapshot
+    handlePoseLocked
   )
 
   const startCamera = useCallback(async () => {
@@ -135,7 +135,7 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
       try {
         const data = await analyze(uploadFile)
         setUploadResult(data)
-        if (data?.pose && shouldRecordPose(lastHistoryPose.current, data.pose)) {
+        if (data?.pose && shouldRecordPose(lastHistoryPose.current, data.pose, data.confidence)) {
           lastHistoryPose.current = data.pose
           const thumb = URL.createObjectURL(uploadFile)
           thumbUrls.current.add(thumb)
@@ -165,6 +165,7 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
 
   const isLive = mode === 'live'
   const analyzing = isLive && (status === 'analyzing' || status === 'capturing')
+  const isLocked = isLive && poseLocked
   const result = isLive
     ? display
     : uploadResult
@@ -227,6 +228,8 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
                   videoRef={videoRef}
                   cameraOn={cameraOn}
                   live={live && cameraOn}
+                  poseLocked={isLocked}
+                  engineStatus={status}
                   onStartCamera={startCamera}
                   onStopCamera={stopCamera}
                   onSwitchMode={handleSwitchMode}
@@ -280,6 +283,7 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
                 postureScore={result?.posture_score ?? null}
                 feedback={result?.feedback ?? []}
                 loading={isLive ? analyzing : uploadLoading}
+                poseLocked={isLocked}
                 modelLoaded={result?.model_loaded !== false}
                 predictedPose={result?.predicted_pose ?? null}
               />
