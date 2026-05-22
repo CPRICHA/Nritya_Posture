@@ -174,6 +174,8 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
           posture_score: uploadResult.posture_score,
           feedback: uploadResult.feedback ?? [],
           matched: uploadResult.matched,
+          model_loaded: uploadResult.model_loaded !== false,
+          predicted_pose: uploadResult.predicted_pose ?? null,
         }
       : null
 
@@ -278,6 +280,8 @@ export function PostureStudio({ expanded, mode, onModeChange, uploadFile, onUplo
                 postureScore={result?.posture_score ?? null}
                 feedback={result?.feedback ?? []}
                 loading={isLive ? analyzing : uploadLoading}
+                modelLoaded={result?.model_loaded !== false}
+                predictedPose={result?.predicted_pose ?? null}
               />
             </div>
           </div>

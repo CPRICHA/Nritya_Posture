@@ -94,11 +94,22 @@ export function ResultCard({
   feedback = [],
   loading = false,
   loaderLabel = 'Reading your posture…',
+  modelLoaded = true,
+  predictedPose = null,
 }) {
   const list = Array.isArray(feedback) ? feedback : []
   const isAwaiting = !pose || pose === '—'
-  const displayPose = isAwaiting ? null : pose
+  const isNone = pose?.toLowerCase() === 'none'
+  const displayPose = isAwaiting ? null : isNone ? 'Unrecognized' : pose
   const goodAlignment = matched && (postureScore == null || postureScore >= 70)
+  const hint =
+    modelLoaded === false
+      ? 'ML pose model is not loaded on the server — run ensure_model.py on deploy.'
+      : isNone && predictedPose
+        ? `Closest match: ${predictedPose} (${Math.round(confidence * 100)}% confidence — need 60%+)`
+        : isNone
+          ? 'Pose detected, but confidence was below 60%.'
+          : null
 
   return (
     <motion.div
@@ -134,6 +145,9 @@ export function ResultCard({
               <span className="mt-4 inline-flex rounded-full bg-gold-500/10 px-3.5 py-1.5 text-xs font-medium text-gold-200/95 ring-1 ring-gold-500/25">
                 Refine alignment
               </span>
+            ) : null}
+            {hint ? (
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-cream-muted/85">{hint}</p>
             ) : null}
           </div>
 

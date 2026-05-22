@@ -9,15 +9,21 @@ mp_pose = mp.solutions.pose
 
 # ---------------- LOAD MODEL ----------------
 
-MODEL_PATH = "pose_model.pkl"
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+MODEL_PATH = os.path.join(BACKEND_DIR, "pose_model.pkl")
 
 model = None
+
+
+def is_model_loaded() -> bool:
+    return model is not None
+
 
 if os.path.exists(MODEL_PATH):
     model = joblib.load(MODEL_PATH)
     print(f"Model loaded successfully from {MODEL_PATH}")
 else:
-    print(f"Model not found at {MODEL_PATH}")
+    print(f"Model not found at {MODEL_PATH} — pose names will show as 'none'")
 
 
 # ---------------- DISTANCE ----------------
@@ -210,28 +216,33 @@ def classify_pose(features):
         print("Model not loaded, returning none")
         return {
             "pose": "none",
+            "predicted_pose": None,
             "confidence": 0,
-            "matched": False
+            "matched": False,
+            "model_loaded": False,
         }
 
     X = pd.DataFrame([features])
 
-    prediction = model.predict(X)[0]
+    prediction = str(model.predict(X)[0])
 
     probabilities = model.predict_proba(X)[0]
-
     confidence = float(np.max(probabilities))
 
-    pose = prediction if confidence >= 0.60 else "none"
-
     matched = confidence >= 0.60
+    pose = prediction if matched else "none"
 
-    print(f"Prediction: {prediction}, Confidence: {confidence:.2f}, Final pose: {pose}")
+    print(
+        f"Prediction: {prediction}, Confidence: {confidence:.2f}, "
+        f"Final pose: {pose}, matched: {matched}"
+    )
 
     return {
         "pose": pose,
+        "predicted_pose": prediction,
         "confidence": round(confidence, 2),
-        "matched": matched
+        "matched": matched,
+        "model_loaded": True,
     }
 
 
@@ -293,10 +304,12 @@ def analyze_posture(landmarks):
 
     result = {
         "pose": classification["pose"],
+        "predicted_pose": classification.get("predicted_pose"),
         "confidence": classification["confidence"],
         "matched": classification["matched"],
+        "model_loaded": classification.get("model_loaded", is_model_loaded()),
         "posture_score": round(posture_score, 2),
-        "feedback": feedback
+        "feedback": feedback,
     }
 
     print(f"Analysis result: {result}")

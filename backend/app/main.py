@@ -11,7 +11,9 @@ from app.services.dataset_to_csv import create_csv
 
 from app.services.posture_analysis import (
     extract_landmarks,
-    analyze_posture
+    analyze_posture,
+    is_model_loaded,
+    MODEL_PATH,
 )
 
 app = FastAPI()
@@ -38,7 +40,11 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-    return {"message": "NrityaAI running"}
+    return {
+        "message": "NrityaAI running",
+        "model_loaded": is_model_loaded(),
+        "model_path": MODEL_PATH,
+    }
 
 # ---------------- CSV GENERATION ----------------
 

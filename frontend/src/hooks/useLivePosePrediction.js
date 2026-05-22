@@ -110,6 +110,8 @@ export function useLivePosePrediction(enabled, getFrameBlob, onSnapshot) {
             posture_score: Math.round(smoothScore.current ?? score ?? 0),
             feedback: Array.isArray(raw.feedback) ? raw.feedback : [],
             matched: Boolean(raw.matched),
+            model_loaded: raw.model_loaded !== false,
+            predicted_pose: raw.predicted_pose ?? null,
             rawPose,
           }
 
