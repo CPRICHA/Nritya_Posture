@@ -22,18 +22,22 @@ app = FastAPI()
 # Comma-separated origins in ALLOWED_ORIGINS, or * for all (local + Vercel + custom domain).
 # allow_credentials must be False when using wildcard origins.
 
-_cors_origins = os.getenv("ALLOWED_ORIGINS", "*").strip()
-_allow_origins = ["*"] if _cors_origins == "*" else [
-    o.strip() for o in _cors_origins.split(",") if o.strip()
-]
+_cors_raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
+_use_wildcard = _cors_raw in ("", "*")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allow_origins,
-    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"https://.*\.vercel\.app"),
+    allow_origins=["*"] if _use_wildcard else [
+        o.strip() for o in _cors_raw.split(",") if o.strip()
+    ],
+    allow_origin_regex=None if _use_wildcard else os.getenv(
+        "ALLOWED_ORIGIN_REGEX", r"https://.*\.vercel\.app"
+    ),
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # ---------------- HOME ----------------
